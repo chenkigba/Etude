@@ -1,6 +1,6 @@
 [build-system]
-requires = ["setuptools>=61.0", "wheel"]
-build-backend = "setuptools.build_meta"
+requires = ["hatchling"]
+build-backend = "hatchling.build"
 
 [project]
 name = "etude"
@@ -26,7 +26,7 @@ classifiers = [
 ]
 
 dependencies = [
-    # Core ML frameworks
+    # Core ML frameworks (torch/torchaudio will be installed from PyTorch CUDA index)
     "torch>=2.0.0",
     "torchaudio>=2.0.0",
     "torchcodec>=0.4.0",
@@ -48,16 +48,22 @@ dependencies = [
     "PyYAML>=6.0",
     "yt-dlp>=2023.0.0",
     "pydantic>=2.0.0",
+
+    # Jupyter support
+    "ipykernel>=6.0.0",
+    "ipywidgets>=8.0.0",
+    "matplotlib>=3.7.0",
 ]
 
 [project.optional-dependencies]
 # Alternative audio separation backend using Demucs (replaces Spleeter)
-# Install with: pip install -e ".[demucs]"
+# Install with: uv sync --extra demucs
 # Note: Spleeter is the default backend and requires a separate conda environment (py38_spleeter)
 demucs = [
     "demucs>=4.0.0",
 ]
 
+[dependency-groups]
 dev = [
     "pytest>=7.0.0",
     "pytest-cov>=4.0.0",
@@ -77,9 +83,43 @@ etude-infer = "infer:main"
 etude-prepare = "prepare:main"
 etude-train = "train:main"
 
-[tool.setuptools.packages.find]
-where = ["."]
-include = ["etude*"]
+# =============================================================================
+# UV Configuration
+# =============================================================================
+
+[tool.uv]
+# Use Chinese mirrors for faster download
+# PyPI mirror: Tsinghua
+index-url = "https://pypi.tuna.tsinghua.edu.cn/simple"
+
+# Allow uv to find packages from multiple indexes (PyPI + PyTorch)
+index-strategy = "unsafe-best-match"
+
+[tool.uv.sources]
+# Pin torch packages to use CUDA index (NJU mirror - China)
+torch = { index = "pytorch-cu124" }
+torchaudio = { index = "pytorch-cu124" }
+
+[[tool.uv.index]]
+name = "pytorch-cu124"
+# NJU (Nanjing University) PyTorch wheels mirror (CUDA 12.4)
+url = "https://mirrors.nju.edu.cn/pytorch/whl/cu124"
+explicit = true
+
+# =============================================================================
+# Hatch Build Configuration
+# =============================================================================
+
+[tool.hatch.metadata]
+# Allow git+ direct references for madmom
+allow-direct-references = true
+
+[tool.hatch.build.targets.wheel]
+packages = ["etude"]
+
+# =============================================================================
+# Tool Configuration
+# =============================================================================
 
 [tool.black]
 line-length = 100
