@@ -237,7 +237,8 @@ class EtudeLogger:
         if self._level > LogLevel.INFO:
             return
 
-        prefix = " • "
+        # Use ASCII character for Windows compatibility (GBK encoding)
+        prefix = " * "
         print(f"{prefix}{message}")
 
     def substep(self, message: str, indent: int = 1) -> None:
