@@ -10,7 +10,37 @@ YAML files only need to specify values that differ from defaults.
 from pathlib import Path
 from typing import Dict, List, Literal, Optional
 
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, Field, model_validator
+
+
+def _get_package_root() -> Path:
+    """Get the root directory of the etude package (where checkpoints folder is)."""
+    # This file is at etude/config/schema.py
+    # Package root is two levels up (etude/) then one more for project root
+    return Path(__file__).parent.parent.parent
+
+
+def _resolve_checkpoint_path(path: Path) -> Path:
+    """
+    Resolve a checkpoint path, checking both current directory and package directory.
+
+    If the path is relative and doesn't exist in current directory,
+    try to find it relative to the package root.
+    """
+    if path.is_absolute():
+        return path
+
+    # First, check if it exists relative to current directory
+    if path.exists():
+        return path.resolve()
+
+    # Try relative to package root
+    package_path = _get_package_root() / path
+    if package_path.exists():
+        return package_path.resolve()
+
+    # Return original path (will fail later with a clear error)
+    return path
 
 
 # ============================================================
@@ -58,6 +88,33 @@ class PathConfig(BaseModel):
     train_output_dir: Path = Path("outputs/train")
     infer_output_dir: Path = Path("outputs/infer")
     eval_output_dir: Path = Path("outputs/evaluation")
+
+    @model_validator(mode="after")
+    def resolve_checkpoint_paths(self) -> "PathConfig":
+        """
+        Automatically resolve checkpoint paths to absolute paths.
+
+        When running as an installed package from a different directory,
+        relative paths like 'checkpoints/extractor/latest.pth' won't work.
+        This validator checks if the path exists relative to the package root.
+        """
+        # List of checkpoint-related path fields to resolve
+        checkpoint_fields = [
+            "checkpoints_dir",
+            "extractor_model",
+            "beat_detector_model",
+            "decoder_model",
+            "decoder_config",
+            "decoder_vocab",
+            "hft_model",
+        ]
+
+        for field_name in checkpoint_fields:
+            path = getattr(self, field_name)
+            resolved = _resolve_checkpoint_path(path)
+            object.__setattr__(self, field_name, resolved)
+
+        return self
 
 
 # ============================================================
