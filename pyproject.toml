@@ -79,9 +79,11 @@ Repository = "https://github.com/Xiugapurin/Etude"
 Paper = "https://arxiv.org/abs/2509.16522"
 
 [project.scripts]
-etude-infer = "infer:main"
-etude-prepare = "prepare:main"
-etude-train = "train:main"
+etude-infer = "etude.cli.infer:main"
+etude-prepare = "etude.cli.prepare:main"
+etude-train = "etude.cli.train:main"
+etude-evaluate = "etude.cli.evaluate:main"
+etude-separate = "etude.scripts.run_separation:main"
 
 # =============================================================================
 # UV Configuration
@@ -116,6 +118,17 @@ allow-direct-references = true
 
 [tool.hatch.build.targets.wheel]
 packages = ["etude"]
+
+# Include package data files (configs, etc.)
+[tool.hatch.build.targets.wheel.sources]
+"etude" = "etude"
+
+# Ensure non-Python files are included
+[tool.hatch.build]
+include = [
+    "etude/**/*.py",
+    "etude/**/*.yaml",
+]
 
 # =============================================================================
 # Tool Configuration

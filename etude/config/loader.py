@@ -2,12 +2,48 @@
 
 """Configuration loading utilities."""
 
+import sys
 from pathlib import Path
 from typing import Any, Dict, Optional, Union
 
 import yaml
 
 from .schema import EtudeConfig
+
+
+def _get_default_config_path() -> Optional[Path]:
+    """
+    Get the path to the built-in default configuration file.
+
+    Returns:
+        Path to the default config if available, None otherwise.
+    """
+    if sys.version_info >= (3, 9):
+        from importlib.resources import files
+        try:
+            config_dir = files("etude.configs")
+            default_yaml = config_dir.joinpath("default.yaml")
+            # For Python 3.9+, we can use as_file or check if it's a Traversable
+            if hasattr(default_yaml, "read_text"):
+                return default_yaml
+        except Exception:
+            pass
+    else:
+        # Python 3.8 fallback
+        from importlib.resources import path as resource_path
+        try:
+            with resource_path("etude.configs", "default.yaml") as p:
+                if p.exists():
+                    return p
+        except Exception:
+            pass
+
+    # Fallback: try relative to this file
+    fallback_path = Path(__file__).parent.parent / "configs" / "default.yaml"
+    if fallback_path.exists():
+        return fallback_path
+
+    return None
 
 
 def load_config(
@@ -18,31 +54,48 @@ def load_config(
     Load configuration with optional YAML overrides.
 
     Args:
-        config_path: Path to YAML file with overrides (optional)
+        config_path: Path to YAML file with overrides (optional).
+                    If None, uses built-in defaults from the package.
         overrides: Dict of programmatic overrides (optional)
 
     Returns:
         Complete EtudeConfig with all defaults filled in
 
     Example:
-        # Use all defaults
+        # Use all defaults (package built-in)
         config = load_config()
 
-        # Override from YAML
-        config = load_config(Path("configs/default.yaml"))
+        # Override from external YAML
+        config = load_config(Path("my_config.yaml"))
 
         # Override programmatically
         config = load_config(overrides={"decoder": {"temperature": 0.8}})
 
         # Combine both
         config = load_config(
-            Path("configs/default.yaml"),
+            Path("my_config.yaml"),
             overrides={"env": {"device": "cuda"}}
         )
     """
     config_dict: Dict[str, Any] = {}
 
-    # Load YAML overrides if provided
+    # Load built-in default config first
+    default_config_path = _get_default_config_path()
+    if default_config_path is not None:
+        try:
+            if hasattr(default_config_path, "read_text"):
+                # importlib.resources Traversable
+                yaml_content = default_config_path.read_text()
+                yaml_config = yaml.safe_load(yaml_content) or {}
+            else:
+                # Regular Path
+                with open(default_config_path, "r") as f:
+                    yaml_config = yaml.safe_load(f) or {}
+            config_dict = _deep_merge(config_dict, yaml_config)
+        except Exception:
+            pass  # Fall back to schema defaults
+
+    # Load user-specified YAML overrides if provided
     if config_path is not None:
         path = Path(config_path)
         if path.exists():
