@@ -53,6 +53,9 @@ dependencies = [
     "ipykernel>=6.0.0",
     "ipywidgets>=8.0.0",
     "matplotlib>=3.7.0",
+
+    # Audio separation
+    "demucs>=4.0.0",
 ]
 
 [project.optional-dependencies]
